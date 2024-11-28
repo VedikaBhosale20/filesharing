@@ -179,13 +179,28 @@
 </body>
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
 <script>
+    const socket = io('http://localhost:5000', { transports: ['websocket', 'polling'] });
+    socket.on('receive-file', (fileData) => {
+        const link = document.createElement('a');
+        link.href = fileData.fileURL;
+        link.download = fileData.fileName;
+        link.textContent = `Download ${fileData.fileName}`;
+        document.body.appendChild(link);
+        alert(`File received: ${fileData.fileName}`);
+    });
+
+
+
+
+
     var files;
 $("#form").on("submit", function (e) {
     e.preventDefault();
     $(".progress-bar").text("0%");
     $("#button").text("Uploading File");
-    $("#button").prop("disabled", "true");
+    $("#button").prop("disabled", true);
     $(".progress-bar").width("0%");
     convertFile();
 });
@@ -197,11 +212,11 @@ $("#upload-input").on("change", function () {
 function convertFile() {
     if (files.length > 0) {
         var formData = new FormData();
-
-        for (var i = 0; i < files.length; i++) {
-            var file = files[i];
-            formData.append("file", file, file.name);
-        }
+        const file = files[0];
+        // for (var i = 0; i < files.length; i++) {
+        //     var file = files[i];
+        formData.append("file", file, file.name);
+        // }
 
         $.ajax({
             url: "/uploadfile",
@@ -212,26 +227,34 @@ function convertFile() {
             success: function (data) {
                 console.log(data.path); // path of the file that is uploaded
                 $(".progress-bar").text("Upload Complete!");
+                $(".progress-bar").width("100%");
+                const fileData = {
+                    fileName: file.name,
+                    fileURL: window.location.origin + '/' + data.path
+                };
+                socket.emit('share-file', fileData);
+
+                alert("File Uploaded Successfully!");
             },
             error: function (err) {
                 console.log(err);
                 $(".progress-bar").text("Upload Failed");
             },
-            xhr: function () {
-                var xhr = new XMLHttpRequest();
-                xhr.upload.addEventListener("progress", function (evt) {
-                    if (evt.lengthComputable) {
-                        var percentComplete = (evt.loaded / evt.total) * 100;
-                        $(".progress-bar").text(Math.round(percentComplete) + "%");
-                        $(".progress-bar").width(Math.round(percentComplete) + "%");
+            // xhr: function () {
+            //     var xhr = new XMLHttpRequest();
+            //     xhr.upload.addEventListener("progress", function (evt) {
+            //         if (evt.lengthComputable) {
+            //             var percentComplete = (evt.loaded / evt.total) * 100;
+            //             $(".progress-bar").text(Math.round(percentComplete) + "%");
+            //             $(".progress-bar").width(Math.round(percentComplete) + "%");
 
-                        if (percentComplete === 100) {
-                            $(".progress-bar").html("Done");
-                        }
-                    }
-                }, false);
-                return xhr;
-            }
+            //             if (percentComplete === 100) {
+            //                 $(".progress-bar").html("Done");
+            //             }
+            //         }
+            //     }, false);
+            //     return xhr;
+            // }
         });
     }
 }

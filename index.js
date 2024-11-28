@@ -1,18 +1,24 @@
-const express = require('express')
+const express = require('express');
+const cors = require('cors');
+const bodyparser = require('body-parser');
+const path = require('path');
+const multer = require('multer');
+const http = require('http');
+const { Server } = require('socket.io');
 
-const bodyparser = require('body-parser')
+const app = express();
+const server = http.createServer(app); // Attach the Express app to the HTTP server
+const io = new Server(server, {
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
+});
 
-const path = require('path')
-
-const multer = require('multer')
-
-const app=express()
-
+app.use(cors());
 app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
-
-app.use(bodyparser.urlencoded({extended:false}))
-
-app.use(bodyparser.json())
+app.use(bodyparser.urlencoded({ extended: false }));
+app.use(bodyparser.json());
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -48,9 +54,21 @@ app.post('/uploadfile', (req, res) => {
     });
 });
 
+io.on('connection', (socket) => {
+  console.log("User Connected: ", socket.id);
 
-const PORT = process.env.PORT || 5000
-app.listen(PORT, ()=> {
-    console.log("App is listning on PORT 5000")
+  socket.on('share-file', (fileData) => {
+    socket.broadcast.emit('receive-file', fileData);
+  });
+
+  socket.on('disconnect', () => {
+    console.log("User disconnected", socket.id);
+  });
+});
+
+
+const PORT = 5000;
+server.listen(PORT, ()=> {
+    console.log(`App is listning on PORT ${PORT}`)
 }
 )
